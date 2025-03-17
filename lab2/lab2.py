@@ -50,8 +50,22 @@ def generate_gaussian_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
 
     return x, labels
 
-def generate_spiral_data():
-    pass
+def generate_spiral_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
+    noise = 0.1
+    
+    theta = np.linspace(-4 * np.pi, 0, N)  # Угол
+    r = theta  # Радиус
+    
+    x1 = r * np.cos(theta) + np.random.normal(0, noise, N)
+    y1 = r * np.sin(theta) + np.random.normal(0, noise, N)
+
+    x2 = r * np.cos(theta + np.pi) + np.random.normal(0, noise, N)
+    y2 = r * np.sin(theta + np.pi) + np.random.normal(0, noise, N)
+
+    samples = np.vstack((np.column_stack((x1, y1)), np.column_stack((x2, y2))))
+    labels = np.hstack((np.full(N, ORANGE_CLR), np.full(N, BLUE_CLR)))
+
+    return samples, labels
 
 # CIRCLE
 # circle_samples, circle_labels = generate_circle_data(N)
@@ -68,7 +82,13 @@ def generate_spiral_data():
 # plt.savefig("xor.png")
 
 # GAUSSIAN
-gaussian_samples, gaussian_labels = generate_gaussian_data(N)
-plt.scatter(gaussian_samples[:, 0], gaussian_samples[:, 1], c=gaussian_labels)
-plt.title('Gaussian')
-plt.savefig("gaussian.png")
+# gaussian_samples, gaussian_labels = generate_gaussian_data(N)
+# plt.scatter(gaussian_samples[:, 0], gaussian_samples[:, 1], c=gaussian_labels)
+# plt.title('Gaussian')
+# plt.savefig("gaussian.png")
+
+# SPIRAL
+spiral_samples, spiral_labels = generate_spiral_data(N)
+plt.scatter(spiral_samples[:, 0], spiral_samples[:, 1], c=spiral_labels)
+plt.title("Spiral")
+plt.savefig("spiral.png")
