@@ -2,53 +2,60 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Tuple
 
-N = 100
+from torch import nn, optim
+import torch
+
+TRAINING_N = 80
+VALIDATION_N = 20
+TEST_N = 20
+
 BLUE_CLR = '#1f77b4'
 ORANGE_CLR = '#ff7f0e'
 
 def generate_circle_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
-    noise = 0
+    noise = 0.2
 
     center_angles = np.random.uniform(0, 2 * np.pi, N)
     center_radius = np.random.uniform(0, 0.5, N)
-    center_x = center_radius * np.cos(center_angles) + np.random.normal(0, noise, N)
-    center_y = center_radius * np.sin(center_angles) + np.random.normal(0, noise, N)
-    center_labels = np.full(N, BLUE_CLR)
+    center_x1 = center_radius * np.cos(center_angles) + np.random.normal(0, noise, N)
+    center_x2 = center_radius * np.sin(center_angles) + np.random.normal(0, noise, N)
+    center_labels = np.full(N, 0)
 
     boundary_angles = np.random.uniform(0, 2 * np.pi, N)
     boundary_radius = np.random.uniform(1, 1.5, N)
-    boundary_x = boundary_radius * np.cos(boundary_angles) + np.random.normal(0, noise, N)
-    boundary_y = boundary_radius * np.sin(boundary_angles) + np.random.normal(0, noise, N)
-    boundary_labels = np.full(N, ORANGE_CLR)
+    boundary_x1 = boundary_radius * np.cos(boundary_angles) + np.random.normal(0, noise, N)
+    boundary_x2 = boundary_radius * np.sin(boundary_angles) + np.random.normal(0, noise, N)
+    boundary_labels = np.full(N, 1)
 
-    labels = np.concatenate((center_labels, boundary_labels))
-    samples = np.vstack((np.column_stack((center_x, center_y)), np.column_stack((boundary_x, boundary_y))))
+    y = np.concatenate((center_labels, boundary_labels))
+    x = np.vstack((np.column_stack((center_x1, center_x2)), np.column_stack((boundary_x1, boundary_x2))))
 
-    return samples, labels
+    return x, y
 
 def generate_xor_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
-    x = np.random.uniform(-6, 6, N)  # Генерируем случайные точки в квадрате [0, 1] x [0, 1]
-    y = np.random.uniform(-6, 6, N)
-    samples = np.column_stack((x, y))
-    values = np.logical_xor(samples[:, 0] > 0, samples[:, 1] > 0).astype(int)  # XOR логика
-    labels = np.where(values > 0, ORANGE_CLR, BLUE_CLR)
-    print(samples)
-    return samples, labels
+    x1 = np.random.uniform(-6, 6, N)  # Генерируем случайные точки в квадрате [0, 1] x [0, 1]
+    x2 = np.random.uniform(-6, 6, N)
+    x = np.column_stack((x1, x2))
+    values = np.logical_xor(x[:, 0] > 0, x[:, 1] > 0).astype(int)  # XOR логика
+    y = np.where(values > 0, 0, 1)
+    return x, y
 
 def generate_gaussian_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
     mean1 = [0, 0]
     cov1 = [[0.1, 0], [0, 0.1]]
+    
     mean2 = [1, 1]
     cov2 = [[0.1, 0], [0, 0.1]]
+    
     class1 = np.random.multivariate_normal(mean1, cov1, N)
-
+    
     class2 = np.random.multivariate_normal(mean2, cov2, N)
 
     x = np.vstack((class1, class2))
 
-    labels = np.hstack((np.full(N, ORANGE_CLR), np.full(N, BLUE_CLR)))  # 0 для первого класса, 1 для второго
+    y = np.hstack((np.full(N, 0), np.full(N, 1)))  # 0 для первого класса, 1 для второго
 
-    return x, labels
+    return x, y
 
 def generate_spiral_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
     noise = 0.1
@@ -56,16 +63,16 @@ def generate_spiral_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
     theta = np.linspace(-4 * np.pi, 0, N)  # Угол
     r = theta  # Радиус
     
-    x1 = r * np.cos(theta) + np.random.normal(0, noise, N)
-    y1 = r * np.sin(theta) + np.random.normal(0, noise, N)
+    first_x1 = r * np.cos(theta) + np.random.normal(0, noise, N)
+    first_x2 = r * np.sin(theta) + np.random.normal(0, noise, N)
 
-    x2 = r * np.cos(theta + np.pi) + np.random.normal(0, noise, N)
-    y2 = r * np.sin(theta + np.pi) + np.random.normal(0, noise, N)
+    second_x1 = r * np.cos(theta + np.pi) + np.random.normal(0, noise, N)
+    second_x2 = r * np.sin(theta + np.pi) + np.random.normal(0, noise, N)
 
-    samples = np.vstack((np.column_stack((x1, y1)), np.column_stack((x2, y2))))
-    labels = np.hstack((np.full(N, ORANGE_CLR), np.full(N, BLUE_CLR)))
+    x = np.vstack((np.column_stack((first_x1, first_x2)), np.column_stack((second_x1, second_x2))))
+    y = np.hstack((np.full(N, ORANGE_CLR), np.full(N, BLUE_CLR)))
 
-    return samples, labels
+    return x, y
 
 # CIRCLE
 # circle_samples, circle_labels = generate_circle_data(N)
@@ -88,7 +95,63 @@ def generate_spiral_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
 # plt.savefig("gaussian.png")
 
 # SPIRAL
-spiral_samples, spiral_labels = generate_spiral_data(N)
-plt.scatter(spiral_samples[:, 0], spiral_samples[:, 1], c=spiral_labels)
-plt.title("Spiral")
-plt.savefig("spiral.png")
+# spiral_samples, spiral_labels = generate_spiral_data(N)
+# plt.scatter(spiral_samples[:, 0], spiral_samples[:, 1], c=spiral_labels)
+# plt.title("Spiral")
+# plt.savefig("spiral.png")
+
+
+class Perceptron1(nn.Model):
+    def __init__(self):
+        super(Perceptron1, self).__init__()
+        self.fully_connected = nn.Linear(2, 1)
+        self.activation_function = nn.Sigmoid()
+
+class Perceptron2(nn.Module):
+    def __init__(self):
+        super(Perceptron2, self).__init__()
+        self.fully_connected = nn.Linear(2, 1) # (x1, x2) --> y
+        self.activation_function = torch.heaviside()
+
+    def forward(self, x):
+        return self.activation_function(self.fully_connected(x))
+
+
+train_x_samples, train_y_samples = generate_gaussian_data(TRAINING_N)
+test_x_samples, test_y_samples = generate_gaussian_data(TEST_N)
+
+train_y_samples = torch.tensor(train_y_samples, dtype=torch.float32).view(-1, 1)
+test_y_samples = torch.tensor(test_y_samples, dtype=torch.float32).view(-1, 1)
+
+plt.scatter(x=train_x_samples[:,0], y=train_x_samples[:,1], c=train_y_samples)
+plt.title("xor model test")
+plt.savefig("xortest.png")
+
+# Преобразуем numpy массивы в тензоры PyTorch
+train_x_samples = torch.tensor(train_x_samples, dtype=torch.float32)
+test_x_samples = torch.tensor(test_x_samples, dtype=torch.float32)
+
+
+# Создание модели, функции потерь и оптимизатора
+model = Perceptron2()
+criterion = nn.BCELoss()  # Функция ошибки, в данном случаем бинарная кросс-энтропия
+optimizer = optim.SGD(model.parameters(), lr=0.1)
+
+# Обучение модели
+epochs = 1000
+for epoch in range(epochs):
+    optimizer.zero_grad() # Сбрасываем значения градиента
+    outputs = model(train_x_samples) # Вычисляем выходные значения по выборке на текущей итерации
+    loss = criterion(outputs, train_y_samples) # Вычисляем функцию ошибки
+    loss.backward() #Обратное распространенние ошибки
+    optimizer.step() #Снова вычисляем градиент
+    
+    if (epoch+1) % 100 == 0:
+        print(f'Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}')
+
+# Тестирование модели
+with torch.no_grad():
+    predictions = model(test_x_samples)
+    loss = criterion(predictions, test_y_samples)
+    print(f"Test samples loss function: {loss.item():.4f}")
+    # print("Predictions:", predictions.numpy())
