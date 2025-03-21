@@ -5,9 +5,13 @@ from typing import Tuple
 from torch import nn, optim
 import torch
 
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+
+
 TRAINING_N = 80
-VALIDATION_N = 20
-TEST_N = 20
+VALIDATION_N = 80
+TEST_N = 80
 
 BLUE_CLR = '#1f77b4'
 ORANGE_CLR = '#ff7f0e'
@@ -41,6 +45,8 @@ def generate_xor_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
     return x, y
 
 def generate_gaussian_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
+    N //= 2
+    
     mean1 = [0, 0]
     cov1 = [[0.1, 0], [0, 0.1]]
     
@@ -100,18 +106,47 @@ def generate_spiral_data(N: int) -> Tuple[np.ndarray, np.ndarray]:
 # plt.title("Spiral")
 # plt.savefig("spiral.png")
 
-
-class Perceptron1(nn.Model):
+class GIPerceptron(): # Geometric intuition algorithm
     def __init__(self):
-        super(Perceptron1, self).__init__()
-        self.fully_connected = nn.Linear(2, 1)
-        self.activation_function = nn.Sigmoid()
+        super(GIPerceptron, self).__init__()
+        self.weights = torch.randn(2) * 0.01
+        self.bias = torch.randn(1) * 0.01
+        self.learn_rate = 0.1
+        self.loss_func = nn.BCELoss()
+
+
+    def binary_step(self, x):
+        return torch.where(x >= 0, torch.tensor(1.0), torch.tensor(0.0))
+    
+    def predict(self, x):
+        return self.binary_step(x @ self.weights + self.bias)
+
+    def train(self, x: torch.Tensor, y, epochs=2000):
+        for epoch in range(epochs):
+            errors = 0
+            for i in range(x.shape[0]):
+                x_i = x[i]
+                y_i = y[i]
+
+                predict_y = self.predict(x_i)
+
+                if predict_y != y_i.item():
+                    self.weights += self.learn_rate * (y_i - predict_y) * x_i
+                    self.bias += self.learn_rate * (y_i - predict_y)
+                    errors += 1
+
+            predictions = self.predict(x)
+            loss = self.loss_func(predictions.view(-1, 1), y)
+            print(f"Epoch {epoch + 1}, Errors: {errors}, Loss: {loss.item()}")
+            if errors == 0:
+                break
+
 
 class Perceptron2(nn.Module):
     def __init__(self):
         super(Perceptron2, self).__init__()
         self.fully_connected = nn.Linear(2, 1) # (x1, x2) --> y
-        self.activation_function = torch.heaviside()
+        self.activation_function = nn.Sigmoid()
 
     def forward(self, x):
         return self.activation_function(self.fully_connected(x))
@@ -131,27 +166,50 @@ plt.savefig("xortest.png")
 train_x_samples = torch.tensor(train_x_samples, dtype=torch.float32)
 test_x_samples = torch.tensor(test_x_samples, dtype=torch.float32)
 
+gi_model = GIPerceptron()
+gi_model.train(train_x_samples, train_y_samples)
 
-# Создание модели, функции потерь и оптимизатора
-model = Perceptron2()
-criterion = nn.BCELoss()  # Функция ошибки, в данном случаем бинарная кросс-энтропия
-optimizer = optim.SGD(model.parameters(), lr=0.1)
+preds = gi_model.predict(test_x_samples)
 
-# Обучение модели
-epochs = 1000
-for epoch in range(epochs):
-    optimizer.zero_grad() # Сбрасываем значения градиента
-    outputs = model(train_x_samples) # Вычисляем выходные значения по выборке на текущей итерации
-    loss = criterion(outputs, train_y_samples) # Вычисляем функцию ошибки
-    loss.backward() #Обратное распространенние ошибки
-    optimizer.step() #Снова вычисляем градиент
+np_preds = np.array(preds)
+np_y = np.array(test_y_samples)
+
+cm = confusion_matrix(np_preds, np_y)
+
+# Визуализируем матрицу ошибок
+
+plt.figure(figsize=(10, 7))
+
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=np.unique(np_y), yticklabels=np.unique(np_y))
+
+plt.ylabel('Истинные метки')
+
+plt.xlabel('Предсказанные метки')
+
+plt.title('Матрица ошибок')
+
+plt.show()
+
+# # Создание модели, функции потерь и оптимизатора
+# model = Perceptron2()
+# criterion = nn.BCELoss()  # Функция ошибки, в данном случаем бинарная кросс-энтропия
+# optimizer = optim.SGD(model.parameters(), lr=0.1)
+
+# # Обучение модели
+# epochs = 1000
+# for epoch in range(epochs):
+#     optimizer.zero_grad() # Сбрасываем значения градиента
+#     outputs = model(train_x_samples) # Вычисляем выходные значения по выборке на текущей итерации
+#     loss = criterion(outputs, train_y_samples) # Вычисляем функцию ошибки
+#     loss.backward() #Обратное распространенние ошибки
+#     optimizer.step() #Снова вычисляем градиент
     
-    if (epoch+1) % 100 == 0:
-        print(f'Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}')
+#     if (epoch+1) % 100 == 0:
+#         print(f'Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}')
 
-# Тестирование модели
-with torch.no_grad():
-    predictions = model(test_x_samples)
-    loss = criterion(predictions, test_y_samples)
-    print(f"Test samples loss function: {loss.item():.4f}")
-    # print("Predictions:", predictions.numpy())
+# # Тестирование модели
+# with torch.no_grad():
+#     predictions = model(test_x_samples)
+#     loss = criterion(predictions, test_y_samples)
+#     print(f"Test samples loss function: {loss.item():.4f}")
+#     # print("Predictions:", predictions.numpy())
