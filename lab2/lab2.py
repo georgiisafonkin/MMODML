@@ -121,7 +121,7 @@ class GIPerceptron(): # Geometric intuition algorithm
     def predict(self, x):
         return self.binary_step(x @ self.weights + self.bias)
 
-    def train(self, x: torch.Tensor, y, epochs=2000):
+    def train(self, x: torch.Tensor, y, epochs=100):
         for epoch in range(epochs):
             errors = 0
             for i in range(x.shape[0]):
@@ -147,9 +147,20 @@ class Perceptron2(nn.Module):
         super(Perceptron2, self).__init__()
         self.fully_connected = nn.Linear(2, 1) # (x1, x2) --> y
         self.activation_function = nn.Sigmoid()
+        self.criterion = nn.BCELoss()
+        self.optimizer = optim.SGD(self.parameters(), lr=0.1)
 
     def forward(self, x):
         return self.activation_function(self.fully_connected(x))
+    
+    def train(self, x: torch.Tensor, y: torch.Tensor, epochs=100):
+        for epoch in range(epochs):
+            self.optimizer.zero_grad() # Сбрасываем значения градиента
+            outputs = self(train_x_samples) # Вычисляем выходные значения по выборке на текущей итерации
+            loss = self.criterion(outputs, train_y_samples) # Вычисляем функцию ошибки
+            loss.backward() #Обратное распространенние ошибки
+            self.optimizer.step() #Снова вычисляем градиент
+            print(f'Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}')
 
 
 train_x_samples, train_y_samples = generate_gaussian_data(TRAINING_N)
@@ -166,13 +177,33 @@ plt.savefig("xortest.png")
 train_x_samples = torch.tensor(train_x_samples, dtype=torch.float32)
 test_x_samples = torch.tensor(test_x_samples, dtype=torch.float32)
 
-gi_model = GIPerceptron()
-gi_model.train(train_x_samples, train_y_samples)
+# Матрица ошибок Перцептрона со ступенчатой функцией
+# gi_model = GIPerceptron()
+# gi_model.train(train_x_samples, train_y_samples)
 
-preds = gi_model.predict(test_x_samples)
+# preds = gi_model.predict(test_x_samples)
 
-np_preds = np.array(preds)
-np_y = np.array(test_y_samples)
+grad_model = Perceptron2()
+criterion = nn.BCELoss()  # Функция ошибки, в данном случаем бинарная кросс-энтропия
+optimizer = optim.SGD(grad_model.parameters(), lr=0.1)
+
+grad_model.train(x=train_x_samples, y=train_y_samples)
+
+# epochs = 60
+# for epoch in range(epochs):
+#     optimizer.zero_grad() # Сбрасываем значения градиента
+#     outputs = grad_model(train_x_samples) # Вычисляем выходные значения по выборке на текущей итерации
+#     loss = criterion(outputs, train_y_samples) # Вычисляем функцию ошибки
+#     loss.backward() #Обратное распространенние ошибки
+#     optimizer.step() #Снова вычисляем градиент
+    
+#     print(f'Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}')
+
+preds = grad_model(test_x_samples)
+np_preds = (preds.detach().numpy() >= 0.5).astype(int)  # Convert probabilities to binary labels
+np_y = test_y_samples.detach().numpy().astype(int)  # Ensure true labels are integers
+
+
 
 cm = confusion_matrix(np_preds, np_y)
 
